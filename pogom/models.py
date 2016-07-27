@@ -20,6 +20,21 @@ log = logging.getLogger(__name__)
 args = get_args()
 db = None
 
+# New from Hubertc
+from pprint import pprint
+import boto3
+import json
+import decimal
+import string
+
+with open('config.json') as data_file:
+    json_config = json.load(data_file)
+pprint(json_config)
+
+dynamodb = boto3.resource('dynamodb', region_name='us-west-2')
+table = dynamodb.Table(json_config['ddb_table'])
+
+
 
 def init_database():
     global db
