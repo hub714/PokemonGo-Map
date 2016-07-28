@@ -32,14 +32,15 @@ with open('config.json') as data_file:
     json_config = json.load(data_file)
 pprint(json_config)
 
-with open('notify.json') as notify_file:
+with open(json_config['notify_file']) as notify_file:
     json_notify = json.load(notify_file)
 #pprint(json_notify)
 
 dynamodb = boto3.resource('dynamodb', region_name='us-west-2')
 table = dynamodb.Table(json_config['ddb_table'])
 
-
+sns = boto3.resource('sns', region_name='us-west-2')
+notify_topic = sns.Topic('arn:aws:sns:us-west-2:521243010531:kumo-pkgo-notifications')
 
 def init_database():
     global db
@@ -238,9 +239,12 @@ class ScannedLocation(BaseModel):
         return scans
 
 #def send_to_ddb(encounter_id):
-def send_to_ddb(encounter_id, pokemon_name, timeleft, d_t_string):
+def send_to_ddb(encounter_id, pokemon_name, timeleft, timeleft_ms, d_t_string, pklat, pklong):
     #fulldate = datetime.datetime.strptime(date + ' ' + time, "%Y-%m-%d %H:%M:%S.%f")
     #fulldate = fulldate + datetime.timedelta(milliseconds=timeleft)
+    timeleft_s_total = timeleft_ms / 1000 
+    timeleft_m, timeleft_s = divmod(timeleft_s_total, 60)
+    #print "%02d:%02d" % (m, s)
 
     tz = pytz.timezone(json_config['time_zone'])
     start_time_datetime = datetime.fromtimestamp(int(timeleft), tz)
@@ -255,6 +259,19 @@ def send_to_ddb(encounter_id, pokemon_name, timeleft, d_t_string):
                 ConditionExpression='attribute_not_exists(encounter_id)'
                 )
         pprint(ddbresponse)
+        
+        directions_link = 'https://www.google.com/maps/dir/Current+Location/%s,%s' % (str(pklat), str(pklong))
+        pprint(directions_link)
+        sns_message = '''Pokemon: %s
+            Valid Until: %s (%i:%i Left)
+            %s''' % (str(pokemon_name), str(start_time_datetime), timeleft_m, timeleft_s, directions_link)
+
+        snsresponse = notify_topic.publish(
+            Subject='Pokemon Found!',
+            Message=sns_message
+        )
+        pprint(snsresponse)
+
     except Exception as e:
         log.error(e) 
 
@@ -292,7 +309,9 @@ def parse_map(map_dict, iteration_num, step, step_location):
                 }
                 #Add row to DDB if it's an important Pokemon
                 if str(p['pokemon_data']['pokemon_id']) in json_notify:
-                    send_to_ddb(p['encounter_id'], get_pokemon_name(p['pokemon_data']['pokemon_id']), time.mktime(d_t.timetuple()), d_t)
+                    pprint(p['latitude'])
+                    pprint(p['longitude'])
+                    send_to_ddb(p['encounter_id'], get_pokemon_name(p['pokemon_data']['pokemon_id']), time.mktime(d_t.timetuple()), p['time_till_hidden_ms'], d_t, str(p['latitude']), str(p['longitude']))
                     #send_to_ddb(p['encounter_id'], get_pokemon_name(p['pokemon_data']['pokemon_id']), d_t) 
                 
                 #pprint(p)

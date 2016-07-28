@@ -1,4 +1,5 @@
 {
+    "notify_file" : "notify.json",
     "ddb_table" : "PkmnNotifySort",
     "time_zone" : "America/Los_Angeles"
 }
