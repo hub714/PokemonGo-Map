@@ -1,3 +1,4 @@
 {
-    "ddb_table" : "PkmnNotifySort"
+    "ddb_table" : "PkmnNotifySort",
+    "time_zone" : "America/Los_Angeles"
 }

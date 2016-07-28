@@ -26,6 +26,7 @@ import boto3
 import json
 import decimal
 import string
+import pytz
 
 with open('config.json') as data_file:
     json_config = json.load(data_file)
@@ -33,7 +34,7 @@ pprint(json_config)
 
 with open('notify.json') as notify_file:
     json_notify = json.load(notify_file)
-pprint(json_notify)
+#pprint(json_notify)
 
 dynamodb = boto3.resource('dynamodb', region_name='us-west-2')
 table = dynamodb.Table(json_config['ddb_table'])
@@ -237,21 +238,25 @@ class ScannedLocation(BaseModel):
         return scans
 
 #def send_to_ddb(encounter_id):
-def send_to_ddb(encounter_id, pokemon_name, timeleft):
+def send_to_ddb(encounter_id, pokemon_name, timeleft, d_t_string):
     #fulldate = datetime.datetime.strptime(date + ' ' + time, "%Y-%m-%d %H:%M:%S.%f")
     #fulldate = fulldate + datetime.timedelta(milliseconds=timeleft)
+
+    tz = pytz.timezone(json_config['time_zone'])
+    start_time_datetime = datetime.fromtimestamp(int(timeleft), tz)
     try:
         ddbresponse = table.put_item(
                     Item={
                         'encounter_id': str(encounter_id),
                         'valid_until': int(timeleft),
-                        'pokemon_name': str(pokemon_name)
+                        'pokemon_name': str(pokemon_name),
+                        'valid_until_readable': str(start_time_datetime)
                 },
                 ConditionExpression='attribute_not_exists(encounter_id)'
                 )
         pprint(ddbresponse)
-    except:
-        log.error("an error") 
+    except Exception as e:
+        log.error(e) 
 
 def parse_map(map_dict, iteration_num, step, step_location):
     pokemons = {}
@@ -285,10 +290,10 @@ def parse_map(map_dict, iteration_num, step, step_location):
                     'longitude': p['longitude'],
                     'disappear_time': time.mktime(d_t.timetuple())
                 }
+                #Add row to DDB if it's an important Pokemon
                 if str(p['pokemon_data']['pokemon_id']) in json_notify:
-                #pprint(json_notify[str(p['pokemon_data']['pokemon_id'])])
-                    send_to_ddb(p['encounter_id'], get_pokemon_name(p['pokemon_data']['pokemon_id']), time.mktime(d_t.timetuple()))
-                
+                    send_to_ddb(p['encounter_id'], get_pokemon_name(p['pokemon_data']['pokemon_id']), time.mktime(d_t.timetuple()), d_t)
+                    #send_to_ddb(p['encounter_id'], get_pokemon_name(p['pokemon_data']['pokemon_id']), d_t) 
                 
                 #pprint(p)
                 send_to_webhook('pokemon', webhook_data)
