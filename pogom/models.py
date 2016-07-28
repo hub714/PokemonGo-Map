@@ -262,9 +262,7 @@ def send_to_ddb(encounter_id, pokemon_name, timeleft, timeleft_ms, d_t_string, p
         
         directions_link = 'https://www.google.com/maps/dir/Current+Location/%s,%s' % (str(pklat), str(pklong))
         pprint(directions_link)
-        sns_message = '''Pokemon: %s
-            Valid Until: %s (%i:%i Left)
-            %s''' % (str(pokemon_name), str(start_time_datetime), timeleft_m, timeleft_s, directions_link)
+        sns_message = '''Pokemon: %s \n Valid Until: %s (%i:%i Left) \n %s''' % (str(pokemon_name), str(start_time_datetime), timeleft_m, timeleft_s, directions_link)
 
         snsresponse = notify_topic.publish(
             Subject='Pokemon Found!',
